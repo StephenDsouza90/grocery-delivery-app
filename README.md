@@ -9,6 +9,8 @@ The application has the following services:
 - Delivery Service
 - Notification Service (TODO)
 
+![design](assets/images/grocery-delivery-app.png)
+
 It uses a **Postgres** database to store records and **Kafka** along with **Zookeeper** to keep track and process orders between services.
 
 ## Table of Contents
@@ -31,6 +33,8 @@ Go dependencies:
 ## Kafka Design
 
 This part explains how each service talks to each other through `producers` and `consumers`.
+
+![kafka](assets/images/kafka-design.png)
 
 ### OrderService
 

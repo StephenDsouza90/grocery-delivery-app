@@ -4,10 +4,10 @@ import (
 	"context"
 	"log"
 
-	"github.com/StephenDsouza90/grocery-delivery-app/cmd/utils"
-	"github.com/StephenDsouza90/grocery-delivery-app/internal/delivery"
+	"github.com/StephenDsouza90/grocery-delivery-app/delivery/handler"
 	"github.com/StephenDsouza90/grocery-delivery-app/internal/kafka"
 	"github.com/StephenDsouza90/grocery-delivery-app/internal/repository"
+	"github.com/StephenDsouza90/grocery-delivery-app/internal/utils"
 )
 
 func main() {
@@ -21,7 +21,7 @@ func main() {
 	consumer := kafka.InitializeKafkaConsumer(kafka.Brokers, kafka.PaymentGroupID)
 
 	repo := repository.NewDBRepository(db)
-	handler := delivery.NewHandler(repo, producer, consumer)
+	handler := handler.NewHandler(repo, producer, consumer)
 
 	ctx := context.Background()
 	go consumer.Consume(ctx, []string{kafka.PaymentStatusTopic, kafka.OrderCreatedTopic}, handler)

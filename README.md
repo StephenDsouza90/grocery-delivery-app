@@ -73,9 +73,9 @@ docker ps
 ```
 
 To start each service, run:
-- `go run cmd/orderservice/main.go`
-- `go run cmd/paymentservice/main.go`
-- `go run cmd/deliveryservice/main.go`
+- `go run order/main.go`
+- `go run payment/main.go`
+- `go run delivery/main.go`
 
 The expected output should be as below:
 ```

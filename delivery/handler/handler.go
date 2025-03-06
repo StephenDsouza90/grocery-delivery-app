@@ -1,4 +1,4 @@
-package delivery
+package handler
 
 import (
 	"context"
@@ -142,6 +142,7 @@ func mockDelivery(deliveryDate string, deliveryTime string) string {
 	return "assigned"
 }
 
+// generateDeliveryId generates a unique delivery ID.
 func generateDeliveryId() int {
 	return int(time.Now().Unix())
 }

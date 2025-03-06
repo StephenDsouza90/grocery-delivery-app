@@ -3,10 +3,10 @@ package main
 import (
 	"log"
 
-	"github.com/StephenDsouza90/grocery-delivery-app/cmd/utils"
 	"github.com/StephenDsouza90/grocery-delivery-app/internal/kafka"
-	"github.com/StephenDsouza90/grocery-delivery-app/internal/order"
 	"github.com/StephenDsouza90/grocery-delivery-app/internal/repository"
+	"github.com/StephenDsouza90/grocery-delivery-app/internal/utils"
+	"github.com/StephenDsouza90/grocery-delivery-app/order/handler"
 	"github.com/gin-gonic/gin"
 )
 
@@ -26,7 +26,7 @@ func main() {
 	consumer := kafka.InitializeKafkaConsumer(kafka.Brokers, kafka.PaymentGroupID)
 
 	repo := repository.NewDBRepository(db)
-	handler := order.NewHandler(repo, producer, consumer)
+	handler := handler.NewHandler(repo, producer, consumer)
 
 	// Start the server
 	router := gin.Default()

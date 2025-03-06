@@ -8,6 +8,9 @@
 *.so
 *.dylib
 
+# Images
+*.drawio
+
 # Test binary, built with `go test -c`
 *.test
 

@@ -20,15 +20,8 @@ It uses a **Postgres** database to store records and **Kafka** along with **Zook
 - How to run locally
 
 ## Installation
-This application depends on Go, Postgres, Docker and Kafka.
 
-Go dependencies:
-
-- Gin (HTTP framework)
-- GORM (ORM for PostgreSQL)
-- Sarama (Kafka client)
-- godotenv (environment variables)
-
+To run the application, **Docker** is required since each service has  `Dockerfile` and a `Postgres`, `Kafka` and `Zookeeper` Docker images are used. The `docker-compose.yml` handles pulling the images of the tools and also builds the services.
 
 ## Kafka Design
 
@@ -62,6 +55,12 @@ Use the `docker-compose.yml` to set up `postgres`, `kafka` and `zookeeper` by ru
 docker-compose up -d
 ```
 
+To restart everything:
+
+```
+docker-compose up --build -d
+```
+
 To stop the services, use the following command:
 ```
 docker-compose down
@@ -70,16 +69,6 @@ docker-compose down
 To check if the containers are running, running the following command:
 ```
 docker ps
-```
-
-To start each service, run:
-- `go run order/main.go`
-- `go run payment/main.go`
-- `go run delivery/main.go`
-
-The expected output should be as below:
-```
-TODO: Add output
 ```
 
 In a new terminal, a CURL request can be sent to the `/orders` REST endpoint as below:
@@ -129,16 +118,36 @@ docker exec -it kafka /bin/bash
 ```
 
 Once inside the Kafka container, use the kafka-console-consumer to see messages from a specific topic.
-- `kafka-console-consumer --bootstrap-server localhost:9092 --topic OrderCreated --from-beginning`
-- `kafka-console-consumer --bootstrap-server localhost:9092 --topic PaymentStatus --from-beginning`
-- `kafka-console-consumer --bootstrap-server localhost:9092 --topic DeliveryStatus --from-beginning`
+- `kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic OrderCreated --from-beginning`
+- `kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic PaymentStatus --from-beginning`
+- `kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic DeliveryStatus --from-beginning`
 
 To restart all volumes, run:
 ```
 docker volume rm $(docker volume ls -q)
 ```
 
+Remove volumes to reset data
+
+```
+docker-compose down -v 
+```
+
+
 ## TODO:
-- Dockerize each service
+- Write test cases
 - Dead Letter Queue for failed payments
 - Central logging
+- Use GraphQL instead of REST
+- More kafka standards
+- More features
+- UI to send many (random) requests
+- Analysis of each step
+- Review images
+
+
+list all Kafka topics
+docker exec kafka kafka-topics.sh --list --bootstrap-server kafka:9092
+
+- Delivery person delivers order and updates status `/delivery-update` -> DeliveryStatus changes to completed -> OrderStatus changes to delivered
+- Notification services -> Subscribes to order, payment and delivery and either produces messages which are sent to the customer and saved in the database

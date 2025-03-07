@@ -5,7 +5,6 @@ import (
 
 	"github.com/StephenDsouza90/grocery-delivery-app/internal/kafka"
 	"github.com/StephenDsouza90/grocery-delivery-app/internal/repository"
-	"github.com/StephenDsouza90/grocery-delivery-app/internal/utils"
 	"github.com/StephenDsouza90/grocery-delivery-app/order/handler"
 	"github.com/gin-gonic/gin"
 )
@@ -15,8 +14,6 @@ const (
 )
 
 func main() {
-	utils.LoadEnv()
-
 	db := repository.ConnectToDatabase()
 
 	repository.AutoMigrate(db, &repository.Order{})

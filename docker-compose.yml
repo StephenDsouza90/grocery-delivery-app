@@ -9,29 +9,143 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    networks:
+      - kafka-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d grocerydelivery"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   zookeeper:
-    image: confluentinc/cp-zookeeper:latest
+    image: zookeeper:3.8
     container_name: zookeeper
+    volumes:
+      - ./zoo.cfg:/conf/zoo.cfg
+    ports:
+      - "2181:2181"
+    networks:
+      - kafka-net
+    healthcheck:
+      test: ["CMD", "zkServer.sh", "status"]
+      interval: 10s
+      timeout: 30s
+      retries: 20
+
+  kafka:
+    image: wurstmeister/kafka:latest
+    container_name: kafka
+    ports:
+      - "9092:9092"
+    volumes:
+      - ./server.properties:/opt/kafka/config/server.properties
     environment:
-      ZOOKEEPER_CLIENT_PORT: 2181
-      ZOOKEEPER_TICK_TIME: 2000
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+    command: |
+      sh -c '
+        #!/bin/bash
+        # Wait for Zookeeper
+        echo "Waiting for Zookeeper..."
+        while ! nc -z zookeeper 2181; do
+          sleep 2
+        done
+
+        # Additional wait for Zookeeper to be fully ready
+        sleep 30
+
+        # Start Kafka
+        /opt/kafka/bin/kafka-server-start.sh /opt/kafka/config/server.properties &
+
+        # Wait for Kafka to be ready
+        echo "Waiting for Kafka..."
+        while ! nc -z localhost 9092; do
+          sleep 2
+        done
+
+        # Create topics
+        kafka-topics.sh --create \
+          --bootstrap-server kafka:9092 \
+          --replication-factor 1 \
+          --partitions 1 \
+          --topic OrderCreated
+
+        kafka-topics.sh --create \
+          --bootstrap-server kafka:9092 \
+          --replication-factor 1 \
+          --partitions 1 \
+          --topic PaymentStatus
+
+        kafka-topics.sh --create \
+          --bootstrap-server kafka:9092 \
+          --replication-factor 1 \
+          --partitions 1 \
+          --topic DeliveryStatus
+
+        # Keep container running
+        tail -f /dev/null
+      '
+    networks:
+      - kafka-net
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "kafka-topics.sh", "--list", "--bootstrap-server", "kafka:9092"]
+      interval: 10s
+      timeout: 30s
+      retries: 20
+
+  order:
+    build:
+      context: .
+      dockerfile: order/Dockerfile
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      zookeeper:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: "host=postgres user=postgres password=postgres dbname=grocerydelivery port=5432 sslmode=disable"
+      KAFKA_BROKERS: "kafka:9092"
     networks:
       - kafka-net
 
-  kafka:
-    image: confluentinc/cp-kafka:latest
-    container_name: kafka
+  payment:
+    build:
+      context: .
+      dockerfile: payment/Dockerfile
     depends_on:
-      - zookeeper
-    ports:
-      - "9092:9092"
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      zookeeper:
+        condition: service_healthy
     environment:
-      KAFKA_BROKER_ID: 1
-      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_LISTENERS: PLAINTEXT://:9092
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
-      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      DATABASE_URL: "host=postgres user=postgres password=postgres dbname=grocerydelivery port=5432 sslmode=disable"
+      KAFKA_BROKERS: "kafka:9092"
+    networks:
+      - kafka-net
+
+  delivery:
+    build:
+      context: .
+      dockerfile: delivery/Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      zookeeper:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: "host=postgres user=postgres password=postgres dbname=grocerydelivery port=5432 sslmode=disable"
+      KAFKA_BROKERS: "kafka:9092"
     networks:
       - kafka-net
 

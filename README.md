@@ -7,7 +7,7 @@ The application has the following services:
 - Order Service
 - Payment Service
 - Delivery Service
-- Notification Service (TODO)
+- Notification Service
 
 ![design](assets/images/grocery-delivery-app.png)
 
@@ -15,7 +15,6 @@ It uses a **Postgres** database to store records and **Kafka** along with **Zook
 
 ## Table of Contents
 - Installation
-- Structure overview
 - Kafka design
 - How to run locally
 
@@ -26,8 +25,6 @@ To run the application, **Docker** is required since each service has  `Dockerfi
 ## Kafka Design
 
 This part explains how each service talks to each other through `producers` and `consumers`.
-
-![kafka](assets/images/kafka-design.png)
 
 ### OrderService
 
@@ -43,7 +40,7 @@ The `DeliveryService` subscribes to the `OrderCreatedTopic` and the `PaymentStat
 
 ### NotificationService
 
-TODO 
+The `NotificationService` subscribes to the `OrderCreatedTopic`, `PaymentStatusTopic` and `DeliveryStatusTopic` and sends notifications to the user about their order being created, payment made and delivery schedule assigned and delivered.
 
 ## How to run locally
 
@@ -65,6 +62,16 @@ To stop the services, use the following command:
 ```
 docker-compose down
 ```
+To restart all volumes, run:
+```
+docker volume rm $(docker volume ls -q)
+```
+
+Remove volumes to reset data:
+
+```
+docker-compose down -v 
+```
 
 To check if the containers are running, running the following command:
 ```
@@ -77,21 +84,21 @@ In a new terminal, a CURL request can be sent to the `/orders` REST endpoint as 
 curl -X POST http://localhost:8080/orders \
   -H "Content-Type: application/json" \
   -d '{
-    "customer_id": 1,
-    "items": {
+    "CustomerID": 1,
+    "Items": {
         "item1": {
-            "name": "item1", 
-            "quantity": 2,
-            "unitPrice": 3
+            "Name": "item1", 
+            "Quantity": 2,
+            "UnitPrice": 3
         },
         "item2": {
-            "name": "item2",
-            "quantity": 3,
-            "unitPrice": 5
+            "Name": "item2",
+            "Quantity": 3,
+            "UnitPrice": 5
         }
     },
-    "delivery_date": "2025-03-07",
-    "delivery_time": "14:00"
+    "DeliveryDate": "2025-03-09",
+    "DeliveryTime": "14:00"
   }'
 ```
 
@@ -111,6 +118,7 @@ To query the tables, the below SQL statement can be executed:
 - `SELECT * FROM orders;`
 - `SELECT * FROM payments;`
 - `SELECT * FROM deliveries;`
+- `SELECT * FROM notifications;`
 
 To see the messages in Kafka, connect to the Kafka container:
 ```
@@ -122,20 +130,30 @@ Once inside the Kafka container, use the kafka-console-consumer to see messages 
 - `kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic PaymentStatus --from-beginning`
 - `kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic DeliveryStatus --from-beginning`
 
-To restart all volumes, run:
-```
-docker volume rm $(docker volume ls -q)
+To update the delivery status (assuming an order is delivered/failed), use the CURL command
+
+```curl
+curl -X POST http://localhost:8081/update-delivery \
+  -H "Content-Type: application/json" \
+  -d '{
+    "DeliveryID": 1,
+    "OrderID": 1,
+    "DeliveryPersonID": 1,
+    "DeliveryStatus": "delivered",
+    "DeliveryDate": "2025-03-08",
+    "DeliveryTime": "16:00"
+  }'
 ```
 
-Remove volumes to reset data
 
-```
-docker-compose down -v 
-```
 
+## PROBLEMS:
+- Check error "Fix Consumer error: kafka server: Request was for a topic or partition that does not exist on this broker"
+- Check error "Payment was not successful for order 1 is in logs"
 
 ## TODO:
 - Write test cases
+- Better logging
 - Dead Letter Queue for failed payments
 - Central logging
 - Use GraphQL instead of REST
@@ -149,5 +167,5 @@ docker-compose down -v
 list all Kafka topics
 docker exec kafka kafka-topics.sh --list --bootstrap-server kafka:9092
 
-- Delivery person delivers order and updates status `/delivery-update` -> DeliveryStatus changes to completed -> OrderStatus changes to delivered
-- Notification services -> Subscribes to order, payment and delivery and either produces messages which are sent to the customer and saved in the database
+TO LEARN:
+- What is group and topic and how it works with multiple topics

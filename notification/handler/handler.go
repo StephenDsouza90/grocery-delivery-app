@@ -41,37 +41,46 @@ func (h *Handler) Cleanup(sarama.ConsumerGroupSession) error {
 // ConsumeClaim consumes messages from the Kafka topic.
 func (h *Handler) ConsumeClaim(session sarama.ConsumerGroupSession, claim sarama.ConsumerGroupClaim) error {
 	for msg := range claim.Messages() {
-		var order r.Order
-		if err := json.Unmarshal(msg.Value, &order); err != nil {
-			log.Printf("Failed to unmarshal order event: %v", err)
+		var baseEvent map[string]interface{}
+		if err := json.Unmarshal(msg.Value, &baseEvent); err != nil {
+			log.Printf("Failed to unmarshal base event: %v", err)
 			continue
 		}
 
-		var payment r.Payment
-		if err := json.Unmarshal(msg.Value, &payment); err != nil {
-			log.Printf("Failed to unmarshal payment event: %v", err)
-			continue
-		}
-
-		var delivery r.Delivery
-		if err := json.Unmarshal(msg.Value, &delivery); err != nil {
-			log.Printf("Failed to unmarshal delivery event: %v", err)
-			continue
-		}
-
-		// Notify user about order
-		if err := h.OrderNotification(context.Background(), order); err != nil {
-			log.Printf("Failed to notify user about order: %v", err)
-		}
-
-		// Notify user about payment
-		if err := h.PaymentNotification(context.Background(), payment); err != nil {
-			log.Printf("Failed to notify user about payment: %v", err)
-		}
-
-		// Notify user about delivery
-		if err := h.DeliveryNotification(context.Background(), delivery); err != nil {
-			log.Printf("Failed to notify user about delivery: %v", err)
+		if eventType, ok := baseEvent["type"].(string); ok {
+			switch eventType {
+			case "order":
+				var order r.Order
+				if err := json.Unmarshal(msg.Value, &order); err != nil {
+					log.Printf("Failed to unmarshal order event: %v", err)
+					continue
+				}
+				if err := h.OrderNotification(context.Background(), order); err != nil {
+					log.Printf("Failed to notify user about order: %v", err)
+				}
+			case "payment":
+				var payment r.Payment
+				if err := json.Unmarshal(msg.Value, &payment); err != nil {
+					log.Printf("Failed to unmarshal payment event: %v", err)
+					continue
+				}
+				if err := h.PaymentNotification(context.Background(), payment); err != nil {
+					log.Printf("Failed to notify user about payment: %v", err)
+				}
+			case "delivery":
+				var delivery r.Delivery
+				if err := json.Unmarshal(msg.Value, &delivery); err != nil {
+					log.Printf("Failed to unmarshal delivery event: %v", err)
+					continue
+				}
+				if err := h.DeliveryNotification(context.Background(), delivery); err != nil {
+					log.Printf("Failed to notify user about delivery: %v", err)
+				}
+			default:
+				log.Printf("Unknown event type: %s", eventType)
+			}
+		} else {
+			log.Printf("Event type not found in message")
 		}
 
 		session.MarkMessage(msg, "")

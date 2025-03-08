@@ -4,40 +4,28 @@ import (
 	"context"
 	"encoding/json"
 	"log"
-	"strconv"
-	"time"
+	"net/http"
 
 	"github.com/IBM/sarama"
-	"github.com/StephenDsouza90/grocery-delivery-app/internal/kafka"
-	"github.com/StephenDsouza90/grocery-delivery-app/internal/repository"
+	k "github.com/StephenDsouza90/grocery-delivery-app/internal/kafka"
+	r "github.com/StephenDsouza90/grocery-delivery-app/internal/repository"
+	"github.com/gin-gonic/gin"
 )
 
 // Handler provides HTTP handlers for interacting with orders.
 type Handler struct {
-	repo     repository.Repository
-	producer *kafka.Producer
-	consumer *kafka.Consumer
-}
-
-type PaymentCreatedMessage struct {
-	OrderID       string `json:"order_id"`
-	PaymentStatus string `json:"payment_status"`
-}
-
-type OrderCreatedMessage struct {
-	OrderID      string `json:"order_id"`
-	DeliveryDate string `json:"delivery_date"`
-	DeliveryTime string `json:"delivery_time"`
+	repo     r.Repository
+	producer *k.Producer
+	consumer *k.Consumer
 }
 
 // NewHandler creates a new Handler.
-func NewHandler(repo repository.Repository, producer *kafka.Producer, consumer *kafka.Consumer) *Handler {
-	handler := &Handler{
+func NewHandler(repo r.Repository, producer *k.Producer, consumer *k.Consumer) *Handler {
+	return &Handler{
 		repo:     repo,
 		producer: producer,
 		consumer: consumer,
 	}
-	return handler
 }
 
 // Setup is run at the beginning of a new session, before ConsumeClaim
@@ -53,15 +41,15 @@ func (h *Handler) Cleanup(sarama.ConsumerGroupSession) error {
 // ConsumeClaim consumes messages from the Kafka topic.
 func (h *Handler) ConsumeClaim(session sarama.ConsumerGroupSession, claim sarama.ConsumerGroupClaim) error {
 	for msg := range claim.Messages() {
-		var payment PaymentCreatedMessage
+		var payment r.Payment
 		if err := json.Unmarshal(msg.Value, &payment); err != nil {
-			log.Printf("Failed to unmarshal PaymentCreatedMessage event: %v", err)
+			log.Printf("Failed to unmarshal payment event: %v", err)
 			continue
 		}
 
-		var order OrderCreatedMessage
+		var order r.Order
 		if err := json.Unmarshal(msg.Value, &order); err != nil {
-			log.Printf("Failed to unmarshal OrderCreatedMessage event: %v", err)
+			log.Printf("Failed to unmarshal order event: %v", err)
 			continue
 		}
 
@@ -76,60 +64,28 @@ func (h *Handler) ConsumeClaim(session sarama.ConsumerGroupSession, claim sarama
 }
 
 // AssignDelivery assigns a delivery to an order.
-func (h *Handler) AssignDelivery(ctx context.Context, payment PaymentCreatedMessage, order OrderCreatedMessage) error {
-	// Check if payment was successful
-	if payment.PaymentStatus != "success" {
-		log.Printf("Payment was not successful for order %s", order.OrderID)
-	}
-
-	// Get delivery date and time and assign it for delivery
-	deliveryDate := order.DeliveryDate
-	deliveryTime := order.DeliveryTime
-
-	// Mock delivery assignment
-	deliveryStatus := mockDelivery(deliveryDate, deliveryTime)
-
-	orderID, err := strconv.Atoi(order.OrderID)
-	if err != nil {
-		log.Printf("Failed to convert order ID to int: %v", err)
-	}
-
-	// Save delivery to database
-	delivery := repository.Delivery{
-		DeliveryID:       generateDeliveryId(),
-		OrderID:          orderID,
-		DeliveryPersonID: 1,
-		DeliveryStatus:   deliveryStatus,
-	}
-
-	// Save the order
-	if err := h.repo.AddDelivery(delivery); err != nil {
-		log.Printf("Failed to save delivery: %v", err)
-		return err
-	}
-
-	// Update status of order
-	var orderStatus string
-	if deliveryStatus == "assigned" {
-		orderStatus = "assigned"
+func (h *Handler) AssignDelivery(c context.Context, p r.Payment, o r.Order) error {
+	if p.PaymentStatus != "success" {
+		log.Printf("Payment was not successful for order %d", o.OrderID)
+		// TODO : Think what to do if payment is not successful
 	} else {
-		orderStatus = "pending"
-	}
-	if err := h.repo.UpdateStatus(orderID, orderStatus); err != nil {
-		log.Printf("Failed to update order status: %v", err)
-	}
+		deliveryDate := o.DeliveryDate
+		deliveryTime := o.DeliveryTime
 
-	// Prepare the delivery data
-	deliveryData := map[string]string{
-		"order_id":        order.OrderID,
-		"delivery_id":     strconv.Itoa(delivery.DeliveryID),
-		"delivery_status": deliveryStatus,
-		"delivery_date":   deliveryDate,
-		"delivery_time":   deliveryTime,
-	}
+		// Mock delivery assignment
+		deliveryStatus := mockDelivery(deliveryDate, deliveryTime)
 
-	// Send delivery message
-	h.producer.SendDeliveryMessage(deliveryData)
+		// Create and save delivery to database
+		newDelivery := deliveryObject(o, deliveryStatus)
+		deliveryID, err := h.repo.AddDelivery(newDelivery)
+		if err != nil {
+			log.Printf("Failed to add delivery for order %d: %v", o.OrderID, err)
+		}
+
+		// Send delivery message
+		newDelivery.DeliveryID = deliveryID
+		h.producer.SendDeliveryMessage(newDelivery)
+	}
 
 	return nil
 }
@@ -142,7 +98,32 @@ func mockDelivery(deliveryDate string, deliveryTime string) string {
 	return "assigned"
 }
 
-// generateDeliveryId generates a unique delivery ID.
-func generateDeliveryId() int {
-	return int(time.Now().Unix())
+// Create delivery object
+func deliveryObject(o r.Order, deliveryStatus string) r.Delivery {
+	return r.Delivery{
+		OrderID:          o.OrderID,
+		DeliveryPersonID: 1,
+		DeliveryStatus:   deliveryStatus,
+		DeliveryDate:     "", // Keep it empty for now until the delivery is actually made
+		DeliveryTime:     "", // Keep it empty for now until the delivery is actually made
+	}
+}
+
+func (h *Handler) UpdateDelivery(c *gin.Context) {
+	var delivery r.Delivery
+	if err := c.ShouldBindJSON(&delivery); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Update delivery status in Delivery table
+	if err := h.repo.UpdateDelivery(delivery.DeliveryID, delivery.DeliveryStatus, delivery.DeliveryDate, delivery.DeliveryTime); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Send delivery message
+	h.producer.SendDeliveryMessage(delivery)
+
+	c.JSON(http.StatusOK, gin.H{"message": "Delivery status updated successfully"})
 }

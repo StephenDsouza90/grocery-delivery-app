@@ -12,14 +12,8 @@ type Consumer struct {
 	consumerGroup sarama.ConsumerGroup
 }
 
-type OrderCreatedMessage struct {
-	OrderID    int     `json:"order_id"`
-	CustomerID int     `json:"customer_id"`
-	Amount     float64 `json:"amount"`
-}
-
 // Initialize Kafka consumer
-func InitializeKafkaConsumer(brokers string, groupID string) *Consumer {
+func InitializeConsumer(brokers string, groupID string) *Consumer {
 	kafkaConsumer, err := NewConsumer(
 		[]string{os.Getenv(brokers)},
 		groupID,

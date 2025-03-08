@@ -25,8 +25,5 @@ WORKDIR /root/
 # Copy the compiled binary from the builder stage
 COPY --from=builder /payment .
 
-# Expose the service port
-EXPOSE 8080
-
 # Run the payment service
 CMD ["./payment"]

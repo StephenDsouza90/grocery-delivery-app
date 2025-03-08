@@ -13,8 +13,8 @@ RUN go mod download
 # Copy the entire project to include the internal package
 COPY . .
 
-# Build the delivery service binary
-RUN CGO_ENABLED=0 GOOS=linux go build -o /delivery ./delivery
+# Build the notification service binary
+RUN CGO_ENABLED=0 GOOS=linux go build -o /notification ./notification
 
 # Use a minimal base image for the final stage
 FROM alpine:latest
@@ -23,10 +23,7 @@ FROM alpine:latest
 WORKDIR /root/
 
 # Copy the compiled binary from the builder stage
-COPY --from=builder /delivery .
+COPY --from=builder /notification .
 
-# Expose the service port
-EXPOSE 8081
-
-# Run the delivery service
-CMD ["./delivery"]
+# Run the notification service
+CMD ["./notification"]

@@ -1,10 +1,14 @@
 package kafka
 
 import (
+	"encoding/json"
 	"log"
 	"os"
 
 	"github.com/IBM/sarama"
+	r "github.com/StephenDsouza90/grocery-delivery-app/internal/repository"
+	u "github.com/StephenDsouza90/grocery-delivery-app/internal/utils"
+	"github.com/fatih/structs"
 )
 
 type Producer struct {
@@ -13,7 +17,7 @@ type Producer struct {
 }
 
 // Initialize Kafka producer
-func InitializeKafkaProducer(brokers string, topic string) *Producer {
+func InitializeProducer(brokers string, topic string) *Producer {
 	kafkaProducer, err := NewProducer(
 		[]string{os.Getenv(brokers)},
 		topic,
@@ -41,46 +45,64 @@ func NewProducer(brokers []string, topic string) (*Producer, error) {
 }
 
 // SendOrderMessage sends an order created event to the Kafka topic
-func (producer *Producer) SendOrderMessage(orderData map[string]string) {
+func (p *Producer) SendOrderMessage(order r.Order) {
 	msg := &sarama.ProducerMessage{
-		Topic: producer.topic,
-		Key:   sarama.StringEncoder(orderData["order_id"]),
-		Value: sarama.StringEncoder(toJSONOrder(orderData)),
+		Topic: p.topic,
+		Key:   sarama.StringEncoder(u.ConverterIntToStr(order.OrderID)),
+		Value: sarama.StringEncoder(toJSONOrder(order)),
 	}
-	producer.asyncProducer.Input() <- msg
+	p.asyncProducer.Input() <- msg
 }
 
 // SendPaymentMessage sends a payment status event to the Kafka topic
-func (producer *Producer) SendPaymentMessage(paymentData map[string]string) {
+func (p *Producer) SendPaymentMessage(payment r.Payment) {
 	msg := &sarama.ProducerMessage{
-		Topic: producer.topic,
-		Key:   sarama.StringEncoder(paymentData["order_id"]),
-		Value: sarama.StringEncoder(toJSONPayment(paymentData)),
+		Topic: p.topic,
+		Key:   sarama.StringEncoder(u.ConverterIntToStr(payment.OrderID)),
+		Value: sarama.StringEncoder(toJSONPayment(payment)),
 	}
-	producer.asyncProducer.Input() <- msg
+	p.asyncProducer.Input() <- msg
 }
 
 // SendDeliveryMessage sends a delivery status event to the Kafka topic
-func (producer *Producer) SendDeliveryMessage(deliveryData map[string]string) {
+func (p *Producer) SendDeliveryMessage(delivery r.Delivery) {
 	msg := &sarama.ProducerMessage{
-		Topic: producer.topic,
-		Key:   sarama.StringEncoder(deliveryData["order_id"]),
-		Value: sarama.StringEncoder(toJSONDelivery(deliveryData)),
+		Topic: p.topic,
+		Key:   sarama.StringEncoder(u.ConverterIntToStr(delivery.OrderID)),
+		Value: sarama.StringEncoder(toJSONDelivery(delivery)),
 	}
-	producer.asyncProducer.Input() <- msg
+	p.asyncProducer.Input() <- msg
 }
 
 // Helper function (implement proper JSON marshaling)
-func toJSONOrder(o map[string]string) string {
-	return `{"order_id": "` + o["order_id"] + `", "customer_id": "` + o["customer_id"] + `", "order_date": "` + o["order_date"] + `", "total_amount": "` + o["total_amount"] + `", "order_status": "` + o["order_status"] + `", "delivery_date": "` + o["delivery_date"] + `", "delivery_time": "` + o["delivery_time"] + `"}`
+func toJSONOrder(o r.Order) string {
+	orderMap := structs.Map(o)
+	jsonData, err := json.Marshal(orderMap)
+	if err != nil {
+		log.Printf("Error marshaling order to JSON: %v", err)
+		return ""
+	}
+	return string(jsonData)
 }
 
 // Helper function (implement proper JSON marshaling)
-func toJSONPayment(p map[string]string) string {
-	return `{"order_id": "` + p["order_id"] + `", "payment_status": "` + p["payment_status"] + `", "payment_date": "` + p["payment_date"] + `", "payment_id": "` + p["payment_id"] + `"}`
+func toJSONPayment(p r.Payment) string {
+	orderMap := structs.Map(p)
+	jsonData, err := json.Marshal(orderMap)
+	if err != nil {
+		log.Printf("Error marshaling order to JSON: %v", err)
+		return ""
+	}
+	return string(jsonData)
 }
 
 // Helper function (implement proper JSON marshaling)
-func toJSONDelivery(d map[string]string) string {
-	return `{"order_id": "` + d["order_id"] + `", "delivery_status": "` + d["delivery_status"] + `", "delivery_date": "` + d["delivery_date"] + `", "delivery_time": "` + d["delivery_time"] + `"}`
+func toJSONDelivery(d r.Delivery) string {
+	orderMap := structs.Map(d)
+	jsonData, err := json.Marshal(orderMap)
+	if err != nil {
+		log.Printf("Error marshaling order to JSON: %v", err)
+		return ""
+	}
+	return string(jsonData)
 }

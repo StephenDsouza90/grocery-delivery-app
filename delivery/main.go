@@ -4,29 +4,36 @@ import (
 	"context"
 	"log"
 
-	"github.com/StephenDsouza90/grocery-delivery-app/delivery/handler"
-	"github.com/StephenDsouza90/grocery-delivery-app/internal/kafka"
-	"github.com/StephenDsouza90/grocery-delivery-app/internal/repository"
+	h "github.com/StephenDsouza90/grocery-delivery-app/delivery/handler"
+	k "github.com/StephenDsouza90/grocery-delivery-app/internal/kafka"
+	r "github.com/StephenDsouza90/grocery-delivery-app/internal/repository"
+	"github.com/gin-gonic/gin"
+)
+
+const (
+	Port = ":8081"
 )
 
 func main() {
-	db := repository.ConnectToDatabase()
+	db := r.ConnectToDatabase()
 
-	repository.AutoMigrate(db, &repository.Delivery{})
+	r.AutoMigrate(db, &r.Delivery{})
 
-	producer := kafka.InitializeKafkaProducer(kafka.Brokers, kafka.DeliveryStatusTopic)
-	consumer := kafka.InitializeKafkaConsumer(kafka.Brokers, kafka.PaymentGroupID)
+	producer := k.InitializeProducer(k.Brokers, k.DeliveryStatusTopic)
+	consumer := k.InitializeConsumer(k.Brokers, k.PaymentGroupID)
 
-	repo := repository.NewDBRepository(db)
-	handler := handler.NewHandler(repo, producer, consumer)
+	repo := r.NewDBRepository(db)
+	handler := h.NewHandler(repo, producer, consumer)
 
 	ctx := context.Background()
-	go consumer.Consume(ctx, []string{kafka.PaymentStatusTopic, kafka.OrderCreatedTopic}, handler)
+	go consumer.Consume(ctx, []string{k.PaymentStatusTopic, k.OrderCreatedTopic}, handler)
 
-	log.Println("Delivery service started")
+	// Start the server
+	router := gin.Default()
+	router.POST("/update-delivery", handler.UpdateDelivery)
 
-	select {}
-
-	// TODO : API for delivery service to say if order is completed
+	if err := router.Run(Port); err != nil {
+		log.Fatalf("Error starting the server: %v", err)
+	}
 
 }

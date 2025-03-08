@@ -4,27 +4,26 @@ import (
 	"context"
 	"log"
 
-	"github.com/StephenDsouza90/grocery-delivery-app/internal/kafka"
-	"github.com/StephenDsouza90/grocery-delivery-app/internal/repository"
-	"github.com/StephenDsouza90/grocery-delivery-app/payment/handler"
+	k "github.com/StephenDsouza90/grocery-delivery-app/internal/kafka"
+	r "github.com/StephenDsouza90/grocery-delivery-app/internal/repository"
+	h "github.com/StephenDsouza90/grocery-delivery-app/payment/handler"
 )
 
 func main() {
-	db := repository.ConnectToDatabase()
+	db := r.ConnectToDatabase()
 
-	repository.AutoMigrate(db, &repository.Payment{})
+	r.AutoMigrate(db, &r.Payment{})
 
-	producer := kafka.InitializeKafkaProducer(kafka.Brokers, kafka.PaymentStatusTopic)
-	consumer := kafka.InitializeKafkaConsumer(kafka.Brokers, kafka.OrderGroupID)
+	producer := k.InitializeProducer(k.Brokers, k.PaymentStatusTopic)
+	consumer := k.InitializeConsumer(k.Brokers, k.OrderGroupID)
 
-	repo := repository.NewDBRepository(db)
-	handler := handler.NewHandler(repo, producer, consumer)
+	repo := r.NewDBRepository(db)
+	handler := h.NewHandler(repo, producer, consumer)
 
 	ctx := context.Background()
-	go consumer.Consume(ctx, []string{kafka.OrderCreatedTopic}, handler)
+	go consumer.Consume(ctx, []string{k.OrderCreatedTopic}, handler)
 
 	log.Println("Payment service started")
 
 	select {}
-
 }

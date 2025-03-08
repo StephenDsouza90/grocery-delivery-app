@@ -15,35 +15,43 @@ const (
 
 // Order represents an order in the system.
 type Order struct {
-	OrderID      int `gorm:"primaryKey"`
-	CustomerID   int
-	OrderDate    time.Time
-	TotalAmount  float64
-	OrderStatus  string // e.g. "created", "paid", "delivered"
-	DeliveryDate string
-	DeliveryTime string
+	OrderID      int       `json:"OrderID" gorm:"primaryKey;autoIncrement"`
+	CustomerID   int       `json:"CustomerID"`
+	OrderDate    time.Time `json:"OrderDate"`
+	TotalAmount  float64   `json:"TotalAmount"`
+	OrderStatus  string    `json:"OrderStatus"`  // e.g. "created", "paid", "assigned", "delivered"
+	DeliveryDate string    `json:"DeliveryDate"` // The customer's preferred delivery date
+	DeliveryTime string    `json:"DeliveryTime"` // The customer's preferred delivery time
 }
 
 // Item represents a list of items in an order.
 type Item struct {
-	Name      string
-	UnitPrice float64
-	Quantity  int
-	OrderID   int
+	Name      string  `json:"Name"`
+	UnitPrice float64 `json:"UnitPrice"`
+	Quantity  int     `json:"Quantity"`
+	OrderID   int     `json:"OrderID"`
 }
 
 type Payment struct {
-	PaymentID     int `gorm:"primaryKey"`
-	OrderID       int
-	PaymentStatus string // "pending", "success", "failed"
-	PaymentDate   time.Time
+	PaymentID     int       `json:"PaymentID" gorm:"primaryKey;autoIncrement"`
+	OrderID       int       `json:"OrderID"`
+	PaymentStatus string    `json:"PaymentStatus"` // "pending", "success", "failed"
+	PaymentDate   time.Time `json:"PaymentDate"`
 }
 
 type Delivery struct {
-	DeliveryID       int `gorm:"primaryKey"`
-	OrderID          int
-	DeliveryPersonID int
-	DeliveryStatus   string // "pending", "assigned", "delivered", "failed"
+	DeliveryID       int    `json:"DeliveryID" gorm:"primaryKey;autoIncrement"`
+	OrderID          int    `json:"OrderID"`
+	DeliveryPersonID int    `json:"DeliveryPersonID"`
+	DeliveryStatus   string `json:"DeliveryStatus"` // "pending", "assigned", "delivered", "failed"
+	DeliveryDate     string `json:"DeliveryDate"`   // The actual delivery date
+	DeliveryTime     string `json:"DeliveryTime"`   // The actual delivery time
+}
+
+type Notification struct {
+	NotificationID int    `json:"NotificationID" gorm:"primaryKey;autoIncrement"`
+	OrderID        int    `json:"OrderID"`
+	Message        string `json:"Message"`
 }
 
 // DBRepository provides access to the Order storage.
@@ -54,21 +62,23 @@ type DBRepository struct {
 // Repository provides access to the order storage.
 type Repository interface {
 	// Adds
-	AddOrder(order Order) error
+	AddOrder(order Order) (int, error)
 	AddItem(item Item) error
-	AddPayment(payment Payment) error
-	AddDelivery(delivery Delivery) error
-
-	// Gets
-	GetTotalAmount(orderID int) (float64, error)
+	AddPayment(payment Payment) (int, error)
+	AddDelivery(delivery Delivery) (int, error)
+	AddNotification(notification Notification) error
 
 	// Updates
 	UpdateStatus(orderID int, orderStatus string) error
+	UpdateDelivery(deliveryID int, deliveryStatus string, deliveryDate string, deliveryTime string) error
 }
 
-// AddOrder adds a new order to the database.
-func (receiver *DBRepository) AddOrder(order Order) error {
-	return receiver.db.Create(&order).Error
+// AddOrder adds a new order to the database and returns order ID.
+func (receiver *DBRepository) AddOrder(order Order) (int, error) {
+	if err := receiver.db.Create(&order).Error; err != nil {
+		return 0, err
+	}
+	return order.OrderID, nil
 }
 
 // AddItem adds a new item to the database.
@@ -77,27 +87,34 @@ func (receiver *DBRepository) AddItem(item Item) error {
 }
 
 // AddPayment adds a new payment to the database.
-func (receiver *DBRepository) AddPayment(payment Payment) error {
-	return receiver.db.Create(&payment).Error
+func (receiver *DBRepository) AddPayment(payment Payment) (int, error) {
+	if err := receiver.db.Create(&payment).Error; err != nil {
+		return 0, err
+	}
+	return payment.PaymentID, nil
 }
 
 // AddDelivery adds a new delivery to the database.
-func (receiver *DBRepository) AddDelivery(delivery Delivery) error {
-	return receiver.db.Create(&delivery).Error
-}
-
-// GetTotalAmount gets the total amount of the order.
-func (receiver *DBRepository) GetTotalAmount(orderID int) (float64, error) {
-	var total float64
-	if err := receiver.db.Raw("SELECT SUM(unit_price * quantity) FROM items WHERE order_id = ?", orderID).Scan(&total).Error; err != nil {
+func (receiver *DBRepository) AddDelivery(delivery Delivery) (int, error) {
+	if err := receiver.db.Create(&delivery).Error; err != nil {
 		return 0, err
 	}
-	return total, nil
+	return delivery.DeliveryID, nil
+}
+
+// AddNotification adds a new notification to the database.
+func (receiver *DBRepository) AddNotification(notification Notification) error {
+	return receiver.db.Create(&notification).Error
 }
 
 // UpdateStatus updates the status of the payment in the order table.
 func (r *DBRepository) UpdateStatus(orderID int, orderStatus string) error {
 	return r.db.Model(&Order{}).Where("order_id = ?", orderID).Update("order_status", orderStatus).Error
+}
+
+// UpdateDelivery updates the status of the delivery in the delivery table.
+func (r *DBRepository) UpdateDelivery(deliveryID int, deliveryStatus string, deliveryDate string, deliveryTime string) error {
+	return r.db.Model(&Delivery{}).Where("delivery_id = ?", deliveryID).Update("delivery_status", deliveryStatus).Update("delivery_date", deliveryDate).Update("delivery_time", deliveryTime).Error
 }
 
 // Connect to the database

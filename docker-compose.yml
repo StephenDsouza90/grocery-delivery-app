@@ -136,6 +136,25 @@ services:
     build:
       context: .
       dockerfile: delivery/Dockerfile
+    ports:
+      - "8081:8081"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      zookeeper:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: "host=postgres user=postgres password=postgres dbname=grocerydelivery port=5432 sslmode=disable"
+      KAFKA_BROKERS: "kafka:9092"
+    networks:
+      - kafka-net
+
+  notification:
+    build:
+      context: .
+      dockerfile: notification/Dockerfile
     depends_on:
       postgres:
         condition: service_healthy

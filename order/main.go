@@ -3,9 +3,9 @@ package main
 import (
 	"log"
 
-	"github.com/StephenDsouza90/grocery-delivery-app/internal/kafka"
-	"github.com/StephenDsouza90/grocery-delivery-app/internal/repository"
-	"github.com/StephenDsouza90/grocery-delivery-app/order/handler"
+	k "github.com/StephenDsouza90/grocery-delivery-app/internal/kafka"
+	r "github.com/StephenDsouza90/grocery-delivery-app/internal/repository"
+	h "github.com/StephenDsouza90/grocery-delivery-app/order/handler"
 	"github.com/gin-gonic/gin"
 )
 
@@ -14,16 +14,16 @@ const (
 )
 
 func main() {
-	db := repository.ConnectToDatabase()
+	db := r.ConnectToDatabase()
 
-	repository.AutoMigrate(db, &repository.Order{})
-	repository.AutoMigrate(db, &repository.Item{})
+	r.AutoMigrate(db, &r.Order{})
+	r.AutoMigrate(db, &r.Item{})
 
-	producer := kafka.InitializeKafkaProducer(kafka.Brokers, kafka.OrderCreatedTopic)
-	consumer := kafka.InitializeKafkaConsumer(kafka.Brokers, kafka.PaymentGroupID)
+	producer := k.InitializeProducer(k.Brokers, k.OrderCreatedTopic)
+	consumer := k.InitializeConsumer(k.Brokers, k.PaymentGroupID)
 
-	repo := repository.NewDBRepository(db)
-	handler := handler.NewHandler(repo, producer, consumer)
+	repo := r.NewDBRepository(db)
+	handler := h.NewHandler(repo, producer, consumer)
 
 	// Start the server
 	router := gin.Default()
@@ -32,5 +32,4 @@ func main() {
 	if err := router.Run(Port); err != nil {
 		log.Fatalf("Error starting the server: %v", err)
 	}
-
 }

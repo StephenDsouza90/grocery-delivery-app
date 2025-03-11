@@ -14,15 +14,14 @@ const (
 )
 
 func main() {
-	db := r.ConnectToDatabase()
+	db := r.ConnectToNeo4jDatabase()
 
-	r.AutoMigrate(db, &r.Order{})
-	r.AutoMigrate(db, &r.Item{})
+	r.SetupConstraints(db)
 
 	producer := k.InitializeProducer(k.Brokers, k.OrderCreatedTopic)
 	consumer := k.InitializeConsumer(k.Brokers, k.PaymentGroupID)
 
-	repo := r.NewDBRepository(db)
+	repo := r.NewNeo4jDBRepository(db)
 	handler := h.NewHandler(repo, producer, consumer)
 
 	// Start the server

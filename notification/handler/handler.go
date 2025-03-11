@@ -90,10 +90,11 @@ func (h *Handler) ConsumeClaim(session sarama.ConsumerGroupSession, claim sarama
 
 // OrderNotification sends a notification to the user about the order.
 func (h *Handler) OrderNotification(c context.Context, o r.Order) error {
-	if u.ConverterIntToStr(o.OrderID) != "" {
+	if o.OrderID != "" {
 		notification := r.Notification{
-			OrderID: o.OrderID,
-			Message: fmt.Sprintf("Your order with ID %s has been %s", u.ConverterIntToStr(o.OrderID), o.OrderStatus),
+			NotificationID: u.GenerateUUID(),
+			OrderID:        o.OrderID,
+			Message:        fmt.Sprintf("Your order with ID %s has been %s", o.OrderID, o.OrderStatus),
 		}
 
 		if err := h.repo.AddNotification(notification); err != nil {
@@ -110,10 +111,11 @@ func (h *Handler) OrderNotification(c context.Context, o r.Order) error {
 
 // PaymentNotification sends a notification to the user about the payment.
 func (h *Handler) PaymentNotification(c context.Context, p r.Payment) error {
-	if u.ConverterIntToStr(p.PaymentID) != "" {
+	if p.PaymentID != "" {
 		notification := r.Notification{
-			OrderID: p.OrderID,
-			Message: fmt.Sprintf("Your payment for order ID %s has been %s", u.ConverterIntToStr(p.OrderID), p.PaymentStatus),
+			NotificationID: u.GenerateUUID(),
+			OrderID:        p.OrderID,
+			Message:        fmt.Sprintf("Your payment for order ID %s has been %s", p.OrderID, p.PaymentStatus),
 		}
 
 		if err := h.repo.AddNotification(notification); err != nil {
@@ -131,10 +133,11 @@ func (h *Handler) PaymentNotification(c context.Context, p r.Payment) error {
 
 // DeliveryNotification sends a notification to the user about the delivery.
 func (h *Handler) DeliveryNotification(c context.Context, d r.Delivery) error {
-	if u.ConverterIntToStr(d.DeliveryID) != "" {
+	if d.DeliveryID != "" {
 		notification := r.Notification{
-			OrderID: d.OrderID,
-			Message: fmt.Sprintf("Your order with ID %s has been %s", u.ConverterIntToStr(d.OrderID), d.DeliveryStatus),
+			NotificationID: u.GenerateUUID(),
+			OrderID:        d.OrderID,
+			Message:        fmt.Sprintf("Your order with ID %s has been %s", d.OrderID, d.DeliveryStatus),
 		}
 
 		if err := h.repo.AddNotification(notification); err != nil {

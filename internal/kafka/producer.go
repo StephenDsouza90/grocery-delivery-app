@@ -7,7 +7,6 @@ import (
 
 	"github.com/IBM/sarama"
 	r "github.com/StephenDsouza90/grocery-delivery-app/internal/repository"
-	u "github.com/StephenDsouza90/grocery-delivery-app/internal/utils"
 	"github.com/fatih/structs"
 )
 
@@ -48,12 +47,12 @@ func NewProducer(brokers []string, topic string) (*Producer, error) {
 func (p *Producer) SendOrderMessage(order r.Order) {
 	msg := &sarama.ProducerMessage{
 		Topic: p.topic,
-		Key:   sarama.StringEncoder(u.ConverterIntToStr(order.OrderID)),
+		Key:   sarama.StringEncoder(order.OrderID),
 		Value: sarama.StringEncoder(toJSONOrder(order)),
 	}
 	select {
 	case p.asyncProducer.Input() <- msg:
-		log.Printf("Message sent to Kafka topic %s for order ID %d", p.topic, order.OrderID)
+		log.Printf("Message sent to Kafka topic %s for order ID %s", p.topic, order.OrderID)
 	case err := <-p.asyncProducer.Errors():
 		log.Printf("Failed to send message to Kafka: %v", err)
 	}
@@ -63,12 +62,12 @@ func (p *Producer) SendOrderMessage(order r.Order) {
 func (p *Producer) SendPaymentMessage(payment r.Payment) {
 	msg := &sarama.ProducerMessage{
 		Topic: p.topic,
-		Key:   sarama.StringEncoder(u.ConverterIntToStr(payment.OrderID)),
+		Key:   sarama.StringEncoder(payment.OrderID),
 		Value: sarama.StringEncoder(toJSONPayment(payment)),
 	}
 	select {
 	case p.asyncProducer.Input() <- msg:
-		log.Printf("Message sent to Kafka topic %s for payment ID %d", p.topic, payment.PaymentID)
+		log.Printf("Message sent to Kafka topic %s for payment ID %s", p.topic, payment.PaymentID)
 	case err := <-p.asyncProducer.Errors():
 		log.Printf("Failed to send message to Kafka: %v", err)
 	}
@@ -78,12 +77,12 @@ func (p *Producer) SendPaymentMessage(payment r.Payment) {
 func (p *Producer) SendDeliveryMessage(delivery r.Delivery) {
 	msg := &sarama.ProducerMessage{
 		Topic: p.topic,
-		Key:   sarama.StringEncoder(u.ConverterIntToStr(delivery.OrderID)),
+		Key:   sarama.StringEncoder(delivery.OrderID),
 		Value: sarama.StringEncoder(toJSONDelivery(delivery)),
 	}
 	select {
 	case p.asyncProducer.Input() <- msg:
-		log.Printf("Message sent to Kafka topic %s for delivery ID %d", p.topic, delivery.DeliveryID)
+		log.Printf("Message sent to Kafka topic %s for delivery ID %s", p.topic, delivery.DeliveryID)
 	case err := <-p.asyncProducer.Errors():
 		log.Printf("Failed to send message to Kafka: %v", err)
 	}

@@ -10,13 +10,11 @@ import (
 )
 
 func main() {
-	db := r.ConnectToDatabase()
-
-	r.AutoMigrate(db, &r.Notification{})
+	db := r.ConnectToNeo4jDatabase()
 
 	consumer := k.InitializeConsumer(k.Brokers, k.NotificationGroupID)
 
-	repo := r.NewDBRepository(db)
+	repo := r.NewNeo4jDBRepository(db)
 	handler := h.NewHandler(repo, consumer)
 
 	ctx := context.Background()

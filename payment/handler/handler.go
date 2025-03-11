@@ -9,6 +9,7 @@ import (
 	"github.com/IBM/sarama"
 	k "github.com/StephenDsouza90/grocery-delivery-app/internal/kafka"
 	r "github.com/StephenDsouza90/grocery-delivery-app/internal/repository"
+	u "github.com/StephenDsouza90/grocery-delivery-app/internal/utils"
 )
 
 // Handler provides HTTP handlers for interacting with orders.
@@ -61,13 +62,12 @@ func (h *Handler) ProcessPayment(c context.Context, o r.Order) error {
 
 	// Create and save payment to database
 	newPayment := paymentObject(o, paymentStatus)
-	paymentID, err := h.repo.AddPayment(newPayment)
+	err := h.repo.AddPayment(newPayment)
 	if err != nil {
 		log.Printf("Failed to save payment to database: %v", err)
 		return err
 	}
 
-	newPayment.PaymentID = paymentID
 	h.producer.SendPaymentMessage(newPayment)
 
 	return nil
@@ -76,7 +76,7 @@ func (h *Handler) ProcessPayment(c context.Context, o r.Order) error {
 // mockPayment processes a payment. This function is not implemented yet so we assume that the payment is a success.
 func mockPayment(amount float64) string {
 	// Use amount to determine if payment is successful
-	if amount < 0 {
+	if amount <= 0 {
 		return "failed"
 	}
 	return "success"
@@ -85,6 +85,7 @@ func mockPayment(amount float64) string {
 // paymentObject creates a new payment object.
 func paymentObject(order r.Order, paymentStatus string) r.Payment {
 	return r.Payment{
+		PaymentID:     u.GenerateUUID(),
 		OrderID:       order.OrderID,
 		PaymentStatus: paymentStatus,
 		PaymentDate:   time.Now(),

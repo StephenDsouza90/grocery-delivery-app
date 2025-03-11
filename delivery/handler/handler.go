@@ -9,6 +9,7 @@ import (
 	"github.com/IBM/sarama"
 	k "github.com/StephenDsouza90/grocery-delivery-app/internal/kafka"
 	r "github.com/StephenDsouza90/grocery-delivery-app/internal/repository"
+	u "github.com/StephenDsouza90/grocery-delivery-app/internal/utils"
 	"github.com/gin-gonic/gin"
 )
 
@@ -66,7 +67,7 @@ func (h *Handler) ConsumeClaim(session sarama.ConsumerGroupSession, claim sarama
 // AssignDelivery assigns a delivery to an order.
 func (h *Handler) AssignDelivery(c context.Context, p r.Payment, o r.Order) error {
 	if p.PaymentStatus != "success" {
-		log.Printf("Payment was not successful for order %d", o.OrderID)
+		log.Printf("Payment was not successful for order %s", o.OrderID)
 		// TODO : Think what to do if payment is not successful
 	} else {
 		deliveryDate := o.DeliveryDate
@@ -77,13 +78,12 @@ func (h *Handler) AssignDelivery(c context.Context, p r.Payment, o r.Order) erro
 
 		// Create and save delivery to database
 		newDelivery := deliveryObject(o, deliveryStatus)
-		deliveryID, err := h.repo.AddDelivery(newDelivery)
+		err := h.repo.AddDelivery(newDelivery)
 		if err != nil {
-			log.Printf("Failed to add delivery for order %d: %v", o.OrderID, err)
+			log.Printf("Failed to add delivery for order %s: %v", o.OrderID, err)
 		}
 
 		// Send delivery message
-		newDelivery.DeliveryID = deliveryID
 		h.producer.SendDeliveryMessage(newDelivery)
 	}
 
@@ -101,6 +101,7 @@ func mockDelivery(deliveryDate string, deliveryTime string) string {
 // Create delivery object
 func deliveryObject(o r.Order, deliveryStatus string) r.Delivery {
 	return r.Delivery{
+		DeliveryID:       u.GenerateUUID(),
 		OrderID:          o.OrderID,
 		DeliveryPersonID: 1,
 		DeliveryStatus:   deliveryStatus,

@@ -10,14 +10,12 @@ import (
 )
 
 func main() {
-	db := r.ConnectToDatabase()
-
-	r.AutoMigrate(db, &r.Payment{})
+	db := r.ConnectToNeo4jDatabase()
 
 	producer := k.InitializeProducer(k.Brokers, k.PaymentStatusTopic)
 	consumer := k.InitializeConsumer(k.Brokers, k.OrderGroupID)
 
-	repo := r.NewDBRepository(db)
+	repo := r.NewNeo4jDBRepository(db)
 	handler := h.NewHandler(repo, producer, consumer)
 
 	ctx := context.Background()

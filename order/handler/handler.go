@@ -6,6 +6,7 @@ import (
 
 	k "github.com/StephenDsouza90/grocery-delivery-app/internal/kafka"
 	r "github.com/StephenDsouza90/grocery-delivery-app/internal/repository"
+	u "github.com/StephenDsouza90/grocery-delivery-app/internal/utils"
 	"github.com/gin-gonic/gin"
 )
 
@@ -45,7 +46,7 @@ func (h *Handler) CreateOrder(c *gin.Context) {
 
 	// Create new order object and save it in the database
 	newOrder := orderObject(rb, totalAmount)
-	orderID, err := h.repo.AddOrder(newOrder)
+	err := h.repo.AddOrder(newOrder)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -53,7 +54,7 @@ func (h *Handler) CreateOrder(c *gin.Context) {
 
 	// Create and save items in the order
 	for _, item := range rb.Items {
-		item.OrderID = orderID
+		item.OrderID = newOrder.OrderID
 		if err := h.repo.AddItem(item); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
@@ -61,7 +62,6 @@ func (h *Handler) CreateOrder(c *gin.Context) {
 	}
 
 	// Send a message to Kafka
-	newOrder.OrderID = orderID
 	h.producer.SendOrderMessage(newOrder)
 
 	c.JSON(http.StatusCreated, newOrder)
@@ -79,6 +79,7 @@ func getTotalAmount(items map[string]r.Item) float64 {
 // orderObject creates a new order object.
 func orderObject(rb OrderRequestBody, totalAmount float64) r.Order {
 	return r.Order{
+		OrderID:      u.GenerateUUID(),
 		CustomerID:   rb.CustomerID,
 		OrderDate:    time.Now(),
 		TotalAmount:  totalAmount,

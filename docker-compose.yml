@@ -1,18 +1,17 @@
 services:
-  postgres:
-    image: postgres:13
+  neo4j:
+    image: neo4j:5
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: grocerydelivery
+      NEO4J_AUTH: neo4j/password
     ports:
-      - "5432:5432"
+      - "7687:7687"
+      - "7474:7474"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - neo4j_data:/data
     networks:
       - kafka-net
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d grocerydelivery"]
+      test: ["CMD", "cypher-shell", "-u", "neo4j", "-p", "password", "RETURN 1"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -103,14 +102,14 @@ services:
     ports:
       - "8080:8080"
     depends_on:
-      postgres:
+      neo4j:
         condition: service_healthy
       kafka:
         condition: service_healthy
       zookeeper:
         condition: service_healthy
     environment:
-      DATABASE_URL: "host=postgres user=postgres password=postgres dbname=grocerydelivery port=5432 sslmode=disable"
+      DATABASE_URL: "neo4j://neo4j:7687"
       KAFKA_BROKERS: "kafka:9092"
     networks:
       - kafka-net
@@ -120,14 +119,14 @@ services:
       context: .
       dockerfile: payment/Dockerfile
     depends_on:
-      postgres:
+      neo4j:
         condition: service_healthy
       kafka:
         condition: service_healthy
       zookeeper:
         condition: service_healthy
     environment:
-      DATABASE_URL: "host=postgres user=postgres password=postgres dbname=grocerydelivery port=5432 sslmode=disable"
+      DATABASE_URL: "neo4j://neo4j:7687"
       KAFKA_BROKERS: "kafka:9092"
     networks:
       - kafka-net
@@ -139,14 +138,14 @@ services:
     ports:
       - "8081:8081"
     depends_on:
-      postgres:
+      neo4j:
         condition: service_healthy
       kafka:
         condition: service_healthy
       zookeeper:
         condition: service_healthy
     environment:
-      DATABASE_URL: "host=postgres user=postgres password=postgres dbname=grocerydelivery port=5432 sslmode=disable"
+      DATABASE_URL: "neo4j://neo4j:7687"
       KAFKA_BROKERS: "kafka:9092"
     networks:
       - kafka-net
@@ -156,20 +155,20 @@ services:
       context: .
       dockerfile: notification/Dockerfile
     depends_on:
-      postgres:
+      neo4j:
         condition: service_healthy
       kafka:
         condition: service_healthy
       zookeeper:
         condition: service_healthy
     environment:
-      DATABASE_URL: "host=postgres user=postgres password=postgres dbname=grocerydelivery port=5432 sslmode=disable"
+      DATABASE_URL: "neo4j://neo4j:7687"
       KAFKA_BROKERS: "kafka:9092"
     networks:
       - kafka-net
 
 volumes:
-  postgres_data:
+  neo4j_data:
 
 networks:
   kafka-net:
